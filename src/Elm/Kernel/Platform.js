@@ -6,6 +6,8 @@ import Elm.Kernel.List exposing (Cons, Nil)
 import Elm.Kernel.Utils exposing (Tuple0)
 import Result exposing (isOk)
 import Platform exposing (Task, ProcessId)
+import Platform.Cmd as Cmd exposing (Cmd)
+import Platform.Sub as Sub exposing (Sub)
 
 */
 
@@ -287,6 +289,10 @@ const _Platform_getSubMapper = home => {
 const _Platform_wrapTask = task => __Platform_Task(task);
 
 const _Platform_wrapProcessId = processId => __Platform_ProcessId(processId);
+
+const _Platform_wrapCmd = e => __Cmd_Cmd(e);
+
+const _Platform_wrapSub = e => __Sub_Sub(e);
 
 // EXPORT ELM MODULES
 //

@@ -94,12 +94,7 @@ section on [structure] in the guide before reaching for this!
 map : (a -> msg) -> Sub a -> Sub msg
 map fn (Data data) =
     data
-        |> List.map
-            (\{ home, value } ->
-                { home = home
-                , value = getSubMapper home fn value
-                }
-            )
+        |> List.map (Bag.mapEffectThunk fn)
         |> Data
 
 

@@ -336,7 +336,7 @@ delicious lasagna and give it to my `update` function as a `Msg` value."
 -}
 perform : (a -> msg) -> Task Never a -> Cmd msg
 perform toMessage task =
-    command (Perform (map toMessage task))
+    Platform.createCmd (manager (map toMessage task))
 
 
 {-| This is very similar to [`perform`](#perform) except it can handle failures!
@@ -369,8 +369,8 @@ feeling for how commands fit into The Elm Architecture.
 -}
 attempt : (Result x a -> msg) -> Task x a -> Cmd msg
 attempt resultToMessage task =
-    command
-        (Perform
+    Platform.createCmd
+        (manager
             (task
                 |> andThen (succeed << resultToMessage << Ok)
                 |> onError (succeed << resultToMessage << Err)
@@ -386,6 +386,13 @@ cmdMap tagger (Perform task) =
 
 -- MANAGER
 
+manager : Task Never msg -> Platform.Router msg Never -> Task x ()
+manager taskrouter =
+    Scheduler.spawn
+        (task
+            |> andThen (Platform.sendToApp router)
+            |> map (\_ -> ())
+        )
 
 init : Task Never ()
 init =

@@ -93,12 +93,7 @@ section on [structure] in the guide before reaching for this!
 map : (a -> msg) -> Cmd a -> Cmd msg
 map fn (Data data) =
     data
-        |> List.map
-            (\{ home, value } ->
-                { home = home
-                , value = getCmdMapper home fn value
-                }
-            )
+        |> List.map (Bag.mapEffectThunk fn)
         |> Data
 
 

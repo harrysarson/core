@@ -2,6 +2,7 @@ module Platform exposing
     ( Program, worker
     , Task, ProcessId
     , Router, sendToApp, sendToSelf
+    , createCmd, createSub
     )
 
 {-|
@@ -164,6 +165,20 @@ sendToSelf (Router router) msg =
 
 
 
+createCmd : OnEffects appMsg -> ((a -> b) -> OnEffects a -> OnEffects b) -> Cmd appMsg
+createCmd thunk mapper =
+    wrapCmd [ Bag.createEffectThunk (createEffectThunk thunk) (createEffectThunkMapper mapper)]
+
+
+createSub : OnEffects appMsg -> ((a -> b) -> OnEffects a -> OnEffects b) -> Sub appMsg
+createSub thunk mapper =
+    wrapSub [ Bag.createEffectThunk (createEffectThunk thunk) (createEffectThunkMapper mapper) ]
+
+
+type alias OnEffects appMsg =
+    (Router appMsg Never -> Task Never ())
+
+
 -- HELPERS --
 
 
@@ -233,8 +248,8 @@ dispatchEffects :
     -> ()
 dispatchEffects cmdBag subBag =
     let
-        effectsDict =
-            Dict.empty
+        effects =
+            List.empty
                 |> gatherCmds cmdBag
                 |> gatherSubs subBag
     in
@@ -259,7 +274,7 @@ gatherCmds :
     -> Dict String ( List (Bag.LeafType msg), List (Bag.LeafType msg) )
 gatherCmds cmdBag effectsDict =
     List.foldr
-        (\{ home, value } dict -> gatherHelper True home value dict)
+        (\{ thunk } dict -> gatherHelper True thunk dict)
         effectsDict
         (unwrapCmd cmdBag)
 
@@ -270,22 +285,21 @@ gatherSubs :
     -> Dict String ( List (Bag.LeafType msg), List (Bag.LeafType msg) )
 gatherSubs subBag effectsDict =
     List.foldr
-        (\{ home, value } dict -> gatherHelper False home value dict)
+        (\{ thunk } dict -> gatherHelper False thunk dict)
         effectsDict
         (unwrapSub subBag)
 
 
-gatherHelper :
-    Bool
-    -> Bag.EffectManagerName
-    -> Bag.LeafType msg
-    -> Dict String ( List (Bag.LeafType msg), List (Bag.LeafType msg) )
-    -> Dict String ( List (Bag.LeafType msg), List (Bag.LeafType msg) )
-gatherHelper isCmd home effectData effectsDict =
-    Dict.insert
-        (effectManagerNameToString home)
-        (createEffect isCmd effectData (Dict.get (effectManagerNameToString home) effectsDict))
-        effectsDict
+-- gatherHelper :
+--     Bool
+--     -> Bag.EffectThunk msg
+--     -> Dict String ( List (Bag.LeafType msg), List (Bag.LeafType msg) )
+--     -> Dict String ( List (Bag.LeafType msg), List (Bag.LeafType msg) )
+-- gatherHelper isCmd thunk effectsDict =
+--     Dict.insert
+--         (effectManagerNameToString home)
+--         (createEffect isCmd thunk (Dict.get (effectManagerNameToString home) effectsDict))
+--         effectsDict
 
 
 createEffect :
@@ -457,6 +471,9 @@ type alias InitFunctions model appMsg =
     }
 
 
+createEffectThunkMapper : ((a -> b) -> OnEffects a -> OnEffects b) -> Bag.EffectThunkMapper a b
+createEffectThunkMapper mapper fn effectThunk =
+    createEffectThunk (mapper fn (uncreateEffectThunk effectThunk))
 
 -- kernel --
 
@@ -486,9 +503,29 @@ unwrapCmd =
     Elm.Kernel.Basics.unwrapTypeWrapper
 
 
+wrapCmd : Bag.EffectBag a -> Cmd a
+wrapCmd =
+    Elm.Kernel.Platform.wrapCmd
+
+
 unwrapSub : Sub a -> Bag.EffectBag a
 unwrapSub =
     Elm.Kernel.Basics.unwrapTypeWrapper
+
+
+wrapSub : Bag.EffectBag a -> Sub a
+wrapSub =
+    Elm.Kernel.Platform.wrapSub
+
+
+createEffectThunk : OnEffects appMsg -> Bag.EffectThunk appMsg
+createEffectThunk =
+    Elm.Kernel.Basics.fudgeType
+
+
+uncreateEffectThunk : Bag.EffectThunk appMsg -> OnEffects appMsg
+uncreateEffectThunk =
+    Elm.Kernel.Basics.fudgeType
 
 
 createHiddenMyCmdList : List (Bag.LeafType msg) -> List (HiddenMyCmd msg)
